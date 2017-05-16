@@ -1,0 +1,7 @@
+#!/bin/bash
+
+./preprocess src/main.spin
+
+cd bin
+
+bstc -bl -p0 -O g  -w2 -D C3 kernel.spin

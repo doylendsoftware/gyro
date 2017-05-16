@@ -1,0 +1,528 @@
+|===========================================================================|
+Objects : -
+kernel
+
+Object Address : 0010 : Object Name : kernel
+
+Binary Image Information :
+PBASE : 0010
+VBASE : 0708
+DBASE : 0710
+PCURR : 06F8
+DCURR : 0714
+|===========================================================================|
+|===========================================================================|
+Object kernel
+Object Base is 0010
+|===========================================================================|
+Object Constants
+|===========================================================================|
+Constant _clkmode = 00000408 (1032)
+Constant _xinfreq = 004C4B40 (5000000)
+Constant FREQUENCY = 04C4B400 (80000000)
+Constant SERIAL_BAUD = 00004B00 (19200)
+Constant SERIAL_BIT_TICKS = 00001046 (4166)
+Constant SERIAL_TX = 00000000 (0)
+Constant SERIAL_RX = 0000001F (31)
+Constant BLOCKS = 00000020 (32)
+|===========================================================================|
+Object DAT Blocks
+|===========================================================================|
+0018(0000)             | kernel
+0018(0000)             |                     org $000
+0018(0000)             | begin
+0018(0000) 14 33 FE 5C |                     call #clear_block_table
+001C(0001) 08 13 FE 5C |                     call #sys_alloc '0, of course. Also mailboxes.
+0020(0002) 1F 0A FE A0 |                     mov x, #SERIAL_RX
+0024(0003) 80 0A 7E 08 |                     wrlong x, #128 'rxpin
+0028(0004) 00 0A FE A0 |                     mov x, #SERIAL_TX
+002C(0005) 84 0A 7E 08 |                     wrlong x, #132 'txpin
+0030(0006) 00 0A FE A0 |                     mov x, #0
+0034(0007) 88 0A 7E 08 |                     wrlong x, #136 'mode
+0038(0008) 4F 0A BE A0 |                     mov x, bitticks_tophalf
+003C(0009) 8C 0A 7E 08 |                     wrlong x, #140 'bitticks
+0040(000A) 01 0A FE A4 |                     neg x, #1
+0044(000B) 90 0A 7E 08 |                     wrlong x, #144 'rxbuff
+0048(000C) 01 0A FE A4 |                     neg x, #1
+004C(000D) 94 0A 7E 08 |                     wrlong x, #148 'txbuff
+0050(000E) 01 0A FE A0 |                     mov x, #1
+0054(000F) 07 0A 7E 0C |                     lockclr x
+0058(0010) 23 08 FE A0 |                     mov k, #"#" 'Send character to indicate boot successful
+005C(0011) 0E 1F FE 5C |                     call #sys_char
+0060(0012) 12 27 FE 5C |                     call #sys_getch 'Wait for keypress
+0064(0013)             | editor              'Tiny hex editor
+0064(0013)             | ed_loop             
+0064(0013) 80 08 FE A0 |                     mov k, #128 'Cursor home
+0068(0014) 45 93 FE 5C |                     call #send_char
+006C(0015) 4E 0A BE A0 |                     mov x, ed_addr
+0070(0016) 04 0C FE A0 |                     mov y, #4
+0074(0017) 05 05 BE A0 | ed_display_loop     mov i, x
+0078(0018) 51 B7 FE 5C |                     call #debug_hex
+007C(0019) 20 08 FE A0 |                     mov k, #32
+0080(001A) 45 93 FE 5C |                     call #send_char
+0084(001B) 7C 08 FE A0 |                     mov k, #"|"
+0088(001C) 45 93 FE 5C |                     call #send_char
+008C(001D) 20 08 FE A0 |                     mov k, #32
+0090(001E) 45 93 FE 5C |                     call #send_char
+0094(001F) 05 05 BE 08 |                     rdlong i, x
+0098(0020) 51 B7 FE 5C |                     call #debug_hex
+009C(0021) 20 08 FE A0 |                     mov k, #32
+00A0(0022) 45 93 FE 5C |                     call #send_char
+00A4(0023) 04 0A FE 80 |                     add x, #4
+00A8(0024) 17 0C FE E4 |                     djnz y, #ed_display_loop
+00AC(0025) 4A A1 FE 5C |                     call #recv_char
+00B0(0026) 70 06 7E 86 |                     cmp j, #"p" wz      'Back
+00B4(0027) 04 9C E8 84 |               if_z  sub ed_addr, #4
+00B8(0028) 3B 06 7E 86 |                     cmp j, #";" wz      'Forward
+00BC(0029) 04 9C E8 80 |               if_z  add ed_addr, #4 
+00C0(002A) 5D 06 7E 86 |                     cmp j, #"]" wz      'Backlight ON
+00C4(002B) 11 08 EA A0 |               if_z  mov k, #17
+00C8(002C) 45 93 EA 5C |               if_z  call #send_char
+00CC(002D) 5B 06 7E 86 |                     cmp j, #"[" wz      'Backlight OFF
+00D0(002E) 12 08 EA A0 |               if_z  mov k, #18
+00D4(002F) 45 93 EA 5C |               if_z  call #send_char
+00D8(0030) 3D 06 7E 86 |                     cmp j, #"=" wz        'Alloc block
+00DC(0031) 08 13 EA 5C |               if_z  call #sys_alloc
+00E0(0032) 2D 06 7E 86 |                     cmp j, #"-" wz      'Dealloc block
+00E4(0033) 4E 04 AA A0 |               if_z  mov i, ed_addr
+00E8(0034) 02 04 EA 28 |               if_z  shr i, #2      
+00EC(0035) 3F 89 EA 5C |               if_z  call #dealloc      
+00F0(0036) 2F 06 7E 86 |                     cmp j, #"/" wz
+00F4(0037) 50 00 68 5C |               if_z  jmp #dumb_launch            'Dumb launch
+00F8(0038) 03 0B BE A0 |                     mov x, j
+00FC(0039) 30 0A FE 85 |                     sub x, #48 wc
+0100(003A) 42 00 70 5C |               if_c  jmp #test_digit_done
+0104(003B) 09 0C FE A0 |                     mov y, #9
+0108(003C) 05 0D 3E 85 |                     cmp y, x wc
+010C(003D) 42 00 70 5C |               if_c  jmp #test_digit_done
+0110(003E) 4E 0C BE 08 |                     rdlong y, ed_addr
+0114(003F) 04 0C FE 2C |                     shl y, #4
+0118(0040) 05 0D BE 80 |                     add y, x
+011C(0041) 4E 0C 3E 08 |                     wrlong y, ed_addr
+0120(0042)             | test_digit_done     
+0120(0042) 03 0B BE A0 |                     mov x, j
+0124(0043) 61 0A FE 85 |                     sub x, #97 wc
+0128(0044) 4D 00 70 5C |               if_c  jmp #test_alpha_done
+012C(0045) 05 0C FE A0 |                     mov y, #5
+0130(0046) 05 0D 3E 85 |                     cmp y, x wc
+0134(0047) 4D 00 70 5C |               if_c  jmp #test_alpha_done
+0138(0048) 0A 0A FE 80 |                     add x, #10
+013C(0049) 4E 0C BE 08 |                     rdlong y, ed_addr
+0140(004A) 04 0C FE 2C |                     shl y, #4
+0144(004B) 05 0D BE 80 |                     add y, x
+0148(004C) 4E 0C 3E 08 |                     wrlong y, ed_addr
+014C(004D)             | test_alpha_done
+014C(004D) 13 00 7C 5C |                     jmp #ed_loop
+0150(004E) 00 00 00 00 | ed_addr             long 0
+0154(004F) 46 10 00 00 | bitticks_tophalf    long SERIAL_BIT_TICKS
+0158(0050)             | dumb_launch         
+0158(0050) 4E 0C FE A0 |                     mov y, #ed_addr
+015C(0051) 04 0C FE 2C |                     shl y, #4
+0160(0052) 08 0C FE 68 |                     or y, #8
+0164(0053) 02 0C 7E 0C |                     coginit y
+0168(0054) 13 00 7C 5C |                     jmp #ed_loop
+016C(0055)             | padding             'long  
+016C(0055) 00 00 00 00 |                     long 0,0,0,1,0,1,0,0,0,0,0
+0170(0056) 00 00 00 00 | 
+0174(0057) 00 00 00 00 | 
+0178(0058) 01 00 00 00 | 
+017C(0059) 00 00 00 00 | 
+0180(005A) 01 00 00 00 | 
+0184(005B) 00 00 00 00 | 
+0188(005C) 00 00 00 00 | 
+018C(005D) 00 00 00 00 | 
+0190(005E) 00 00 00 00 | 
+0194(005F) 00 00 00 00 | 
+0198(0060) 00 00 00 00 |                     long 0,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0
+019C(0061) 00 00 00 00 | 
+01A0(0062) 00 00 00 00 | 
+01A4(0063) 01 00 00 00 | 
+01A8(0064) 00 00 00 00 | 
+01AC(0065) 01 00 00 00 | 
+01B0(0066) 00 00 00 00 | 
+01B4(0067) 00 00 00 00 | 
+01B8(0068) 00 00 00 00 | 
+01BC(0069) 00 00 00 00 | 
+01C0(006A) 00 00 00 00 | 
+01C4(006B) 00 00 00 00 | 
+01C8(006C) 00 00 00 00 | 
+01CC(006D) 00 00 00 00 | 
+01D0(006E) 00 00 00 00 | 
+01D4(006F) 00 00 00 00 | 
+01D8(0070) 00 00 00 00 |                     long 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+01DC(0071) 00 00 00 00 | 
+01E0(0072) 00 00 00 00 | 
+01E4(0073) 00 00 00 00 | 
+01E8(0074) 00 00 00 00 | 
+01EC(0075) 00 00 00 00 | 
+01F0(0076) 00 00 00 00 | 
+01F4(0077) 00 00 00 00 | 
+01F8(0078) 00 00 00 00 | 
+01FC(0079) 00 00 00 00 | 
+0200(007A) 00 00 00 00 | 
+0204(007B) 00 00 00 00 | 
+0208(007C) 00 00 00 00 | 
+020C(007D) 00 00 00 00 | 
+0210(007E) 00 00 00 00 | 
+0214(007F) 00 00 00 00 | 
+0218(0080) 00 00 00 00 |                     long 0,0,1,0,0,0,1,0,0,0,0,0,0,0,0,0
+021C(0081) 00 00 00 00 | 
+0220(0082) 01 00 00 00 | 
+0224(0083) 00 00 00 00 | 
+0228(0084) 00 00 00 00 | 
+022C(0085) 00 00 00 00 | 
+0230(0086) 01 00 00 00 | 
+0234(0087) 00 00 00 00 | 
+0238(0088) 00 00 00 00 | 
+023C(0089) 00 00 00 00 | 
+0240(008A) 00 00 00 00 | 
+0244(008B) 00 00 00 00 | 
+0248(008C) 00 00 00 00 | 
+024C(008D) 00 00 00 00 | 
+0250(008E) 00 00 00 00 | 
+0254(008F) 00 00 00 00 | 
+0258(0090) 00 00 00 00 |                     long 0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0
+025C(0091) 00 00 00 00 | 
+0260(0092) 00 00 00 00 | 
+0264(0093) 01 00 00 00 | 
+0268(0094) 01 00 00 00 | 
+026C(0095) 01 00 00 00 | 
+0270(0096) 00 00 00 00 | 
+0274(0097) 00 00 00 00 | 
+0278(0098) 00 00 00 00 | 
+027C(0099) 00 00 00 00 | 
+0280(009A) 00 00 00 00 | 
+0284(009B) 00 00 00 00 | 
+0288(009C) 00 00 00 00 | 
+028C(009D) 00 00 00 00 | 
+0290(009E) 00 00 00 00 | 
+0294(009F) 00 00 00 00 | 
+0298(00A0) 00 00 00 00 |                     long 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+029C(00A1) 00 00 00 00 | 
+02A0(00A2) 00 00 00 00 | 
+02A4(00A3) 00 00 00 00 | 
+02A8(00A4) 00 00 00 00 | 
+02AC(00A5) 00 00 00 00 | 
+02B0(00A6) 00 00 00 00 | 
+02B4(00A7) 00 00 00 00 | 
+02B8(00A8) 00 00 00 00 | 
+02BC(00A9) 00 00 00 00 | 
+02C0(00AA) 00 00 00 00 | 
+02C4(00AB) 00 00 00 00 | 
+02C8(00AC) 00 00 00 00 | 
+02CC(00AD) 00 00 00 00 | 
+02D0(00AE) 00 00 00 00 | 
+02D4(00AF) 00 00 00 00 | 
+02D8(00B0) 00 00 00 00 |                     long 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+02DC(00B1) 00 00 00 00 | 
+02E0(00B2) 00 00 00 00 | 
+02E4(00B3) 00 00 00 00 | 
+02E8(00B4) 00 00 00 00 | 
+02EC(00B5) 00 00 00 00 | 
+02F0(00B6) 00 00 00 00 | 
+02F4(00B7) 00 00 00 00 | 
+02F8(00B8) 00 00 00 00 | 
+02FC(00B9) 00 00 00 00 | 
+0300(00BA) 00 00 00 00 | 
+0304(00BB) 00 00 00 00 | 
+0308(00BC) 00 00 00 00 | 
+030C(00BD) 00 00 00 00 | 
+0310(00BE) 00 00 00 00 | 
+0314(00BF) 00 00 00 00 | 
+0318(00C0) 00 00 00 00 |                     long 0,1,1,1,0,1,1,0,1,1,0,1,1,0,0,0
+031C(00C1) 01 00 00 00 | 
+0320(00C2) 01 00 00 00 | 
+0324(00C3) 01 00 00 00 | 
+0328(00C4) 00 00 00 00 | 
+032C(00C5) 01 00 00 00 | 
+0330(00C6) 01 00 00 00 | 
+0334(00C7) 00 00 00 00 | 
+0338(00C8) 01 00 00 00 | 
+033C(00C9) 01 00 00 00 | 
+0340(00CA) 00 00 00 00 | 
+0344(00CB) 01 00 00 00 | 
+0348(00CC) 01 00 00 00 | 
+034C(00CD) 00 00 00 00 | 
+0350(00CE) 00 00 00 00 | 
+0354(00CF) 00 00 00 00 | 
+0358(00D0) 00 00 00 00 |                     long 0,0,1,0,0,1,0,1,0,1,0,1,0,1,0,0
+035C(00D1) 00 00 00 00 | 
+0360(00D2) 01 00 00 00 | 
+0364(00D3) 00 00 00 00 | 
+0368(00D4) 00 00 00 00 | 
+036C(00D5) 01 00 00 00 | 
+0370(00D6) 00 00 00 00 | 
+0374(00D7) 01 00 00 00 | 
+0378(00D8) 00 00 00 00 | 
+037C(00D9) 01 00 00 00 | 
+0380(00DA) 00 00 00 00 | 
+0384(00DB) 01 00 00 00 | 
+0388(00DC) 00 00 00 00 | 
+038C(00DD) 01 00 00 00 | 
+0390(00DE) 00 00 00 00 | 
+0394(00DF) 00 00 00 00 | 
+0398(00E0) 00 00 00 00 |                     long 0,0,1,0,0,1,0,1,0,1,0,1,1,0,0,0
+039C(00E1) 00 00 00 00 | 
+03A0(00E2) 01 00 00 00 | 
+03A4(00E3) 00 00 00 00 | 
+03A8(00E4) 00 00 00 00 | 
+03AC(00E5) 01 00 00 00 | 
+03B0(00E6) 00 00 00 00 | 
+03B4(00E7) 01 00 00 00 | 
+03B8(00E8) 00 00 00 00 | 
+03BC(00E9) 01 00 00 00 | 
+03C0(00EA) 00 00 00 00 | 
+03C4(00EB) 01 00 00 00 | 
+03C8(00EC) 01 00 00 00 | 
+03CC(00ED) 00 00 00 00 | 
+03D0(00EE) 00 00 00 00 | 
+03D4(00EF) 00 00 00 00 | 
+03D8(00F0) 00 00 00 00 |                     long 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+03DC(00F1) 00 00 00 00 | 
+03E0(00F2) 00 00 00 00 | 
+03E4(00F3) 00 00 00 00 | 
+03E8(00F4) 00 00 00 00 | 
+03EC(00F5) 00 00 00 00 | 
+03F0(00F6) 00 00 00 00 | 
+03F4(00F7) 00 00 00 00 | 
+03F8(00F8) 00 00 00 00 | 
+03FC(00F9) 00 00 00 00 | 
+0400(00FA) 00 00 00 00 | 
+0404(00FB) 00 00 00 00 | 
+0408(00FC) 00 00 00 00 | 
+040C(00FD) 00 00 00 00 | 
+0410(00FE) 00 00 00 00 | 
+0414(00FF) 00 00 00 00 | 
+0418(0100) 00 01 7C 5C | sys_halt        jmp #sys_halt
+041C(0101) 00 00 00 00 | zero            long 0
+0420(0102) 00 00 00 00 | i               long 0
+0424(0103) 00 00 00 00 | j               long 0
+0428(0104) 00 00 00 00 | k               long 0
+042C(0105) 00 00 00 00 | x               long 0
+0430(0106) 00 00 00 00 | y               long 0
+0434(0107) 00 00 00 00 | z               long 0
+0438(0108) 2F 7D FE 5C | sys_alloc       call #alloc
+043C(0109) 00 00 7C 5C | sys_alloc_ret   ret
+0440(010A) 3F 89 FE 5C | sys_dealloc     call #dealloc
+0444(010B) 00 00 7C 5C | sys_dealloc_ret ret
+0448(010C) 1A 5D FE 5C | sys_contig      call #alloc_contig
+044C(010D) 00 00 7C 5C | sys_contig_ret  ret
+0450(010E) 45 93 FE 5C | sys_char        call #send_char
+0454(010F) 00 00 7C 5C | sys_char_ret    ret
+0458(0110) 51 B7 FE 5C | sys_hex         call #debug_hex
+045C(0111) 00 00 7C 5C | sys_hex_ret     ret
+0460(0112) 4A A1 FE 5C | sys_getch       call #recv_char
+0464(0113) 00 00 7C 5C | sys_getch_ret   ret
+0468(0114) 20 04 FE A0 | clear_block_table   mov i, #32 
+046C(0115) 00 06 FE A0 |                     mov j, #0
+0470(0116) 03 03 3E 08 | clear_loop          wrlong zero, j
+0474(0117) 04 06 FE 80 |                     add j, #4
+0478(0118) 16 05 FE E4 |                     djnz i,#clear_loop
+047C(0119) 00 00 7C 5C | clear_block_table_ret ret
+0480(011A)             | alloc_contig        'Allocate a contiguous set of blocks, i is number of blocks
+0480(011A) 06 02 7E 0D | contig_lock_loop     lockset zero wc 'Try to set the lock
+0484(011B) 1A 01 70 5C |             if_c    jmp #contig_lock_loop
+0488(011C) 00 08 FE A0 |                     mov k, #0 'Counts address index
+048C(011D) 00 06 FE A0 |                     mov j, #0 'Counts contig sf
+0490(011E) 04 0B BE 0A | finder_loop         rdlong x, k wz 'Get from table to x
+0494(011F) 01 06 EA 80 |             if_z    add j,#1 'Got something? Add
+0498(0120) 00 06 D6 A0 |             if_nz   mov j, #0 'Not empty? Reset
+049C(0121) 04 08 FE 80 |                     add k, #4
+04A0(0122) 03 05 3E 86 |                     cmp i, j wz 
+04A4(0123) 25 01 68 5C |             if_z    jmp #contig_good
+04A8(0124) 1E 01 7C 5C |                     jmp #finder_loop
+04AC(0125)             | contig_good         'All good!
+04AC(0125) 02 08 FE 28 |                     shr k, #2 'Make K the index instead of address.
+04B0(0126) 02 09 BE 84 |                     sub k, i  'Find first block
+04B4(0127) 04 0F BE A0 |                     mov z, k   'Stow it in Z
+04B8(0128) 01 0C FE A4 |                     neg y, #1
+04BC(0129) 02 08 FE 2C |                     shl k, #2
+04C0(012A) 04 0D 3E 08 | contig_alloc_loop   wrlong y,k
+04C4(012B) 04 08 FE 80 |                     add k,#4
+04C8(012C) 2A 05 FE E4 |                     djnz i, #contig_alloc_loop
+04CC(012D) 07 02 7E 0C |                     lockclr zero
+04D0(012E) 00 00 7C 5C | alloc_contig_ret    ret
+04D4(012F)             | alloc               'Allocate a block
+04D4(012F) 06 02 7E 0D | alloc_lock_loop     lockset zero wc 'Try to set the lock
+04D8(0130) 2F 01 70 5C |             if_c    jmp #alloc_lock_loop
+04DC(0131) 00 06 FE A0 |                     mov j, #0
+04E0(0132) 20 0A FE A0 |                     mov x, #blocks
+04E4(0133)             | alloc_find_loop     
+04E4(0133) 03 09 BE 08 |                     rdlong k, j 'Allocated? (TODO)
+04E8(0134) 3A 09 7E EC |                     tjz k, #finish_good 'If not allocated, go fix!
+04EC(0135) 04 06 FE 80 |                     add j, #4
+04F0(0136) 33 0B FE E4 |                     djnz x, #alloc_find_loop
+04F4(0137) 01 06 FE A4 |                     neg j, #1
+04F8(0138) 07 02 7E 0C | alloc_finish        lockclr zero
+04FC(0139) 3E 01 7C 5C |                     jmp #alloc_ret
+0500(013A) 01 08 FE A4 | finish_good         neg k, #1
+0504(013B) 03 09 3E 08 |                     wrlong k, j
+0508(013C) 07 02 7E 0C |                     lockclr zero
+050C(013D) 02 06 FE 28 |                     shr j, #2 'Move j to be index not addr
+0510(013E) 00 00 7C 5C | alloc_ret   ret
+0514(013F)             | dealloc             'Deallocate a block. Block is in i.
+0514(013F) 06 02 7E 0D | dealloc_lock_loop     lockset zero wc 'Try to set the lock
+0518(0140) 3F 01 70 5C |             if_c    jmp #dealloc_lock_loop
+051C(0141) 02 04 FE 2C |                     shl i, #2 'Multiply by 4 to get long
+0520(0142) 02 03 3E 08 |                     wrlong zero,i
+0524(0143) 07 02 7E 0C |                     lockclr zero
+0528(0144) 00 00 7C 5C | dealloc_ret         ret
+052C(0145) 94 06 FE 08 | send_char           rdlong j, #148 'USES J
+0530(0146) 1F 06 FE 2A |                     shr j, #31 wz
+0534(0147) 45 01 68 5C |                if_z jmp #send_char
+0538(0148) 94 08 7E 08 |                     wrlong k, #148
+053C(0149) 00 00 7C 5C | send_char_ret       ret
+0540(014A)             | recv_char           'Uses j and k. Character is in j.  
+0540(014A) 90 06 FE 08 |                     rdlong j, #144
+0544(014B) 01 08 FE A4 |                     neg k, #1
+0548(014C) 03 09 BE 6C |                     xor k, j
+054C(014D) 4A 09 7E EC |                     tjz k, #recv_char
+0550(014E) 01 08 FE A4 |                     neg k, #1
+0554(014F) 90 08 7E 08 |                     wrlong k, #144
+0558(0150) 00 00 7C 5C | recv_char_ret       ret
+055C(0151)             | debug_hex           'Assumes item is in i; uses j, k,and z
+055C(0151) 08 0E FE A0 |                     mov z, #8
+0560(0152)             | debug_hex_loop      
+0560(0152) 02 09 BE A0 |                     mov k,i
+0564(0153) 1C 08 FE 28 |                     shr k, #28
+0568(0154) 0F 08 FE 60 |                     and k, #$f
+056C(0155) 0A 08 7E 85 |                     cmp k, #10 wc
+0570(0156) 37 08 CE 80 |               if_nc add k, #55
+0574(0157) 30 08 F2 80 |               if_c  add k, #48
+0578(0158) 04 04 FE 2C |                     shl i, #4
+057C(0159) 45 93 FE 5C |                     call #send_char
+0580(015A) 52 0F FE E4 |                     djnz z, #debug_hex_loop
+0584(015B) 00 00 7C 5C | debug_hex_ret       ret
+0588(015C)             | spi_long            'Channel in i, data in k, bits in j.
+0588(015C) 02 0A FE A0 |                     mov x, #2
+058C(015D) 06 0A 7E 0D |                     lockset x wc
+0590(015E) 5C 01 70 5C |               if_c  jmp #spi_long
+0594(015F) 01 0A FE A0 |                     mov x, #1
+0598(0160) 08 0A FE 2C |                     shl x, #8
+059C(0161) 05 E9 BF 68 |                     or outa, x 'Toggle CLR        'FIXME: Set up dira
+05A0(0162) 00 00 00 00 |                     nop
+05A4(0163) 05 E9 BF 6C |                     xor outa, x 'Turn it off
+05A8(0164) 01 0A FE A0 |                     mov x, #1
+05AC(0165) 19 0A FE 2C |                     shl x, #25
+05B0(0166) 6B 05 7E EC |                     tjz i, #spi_select_done
+05B4(0167)             | spi_select_loop     
+05B4(0167) 05 E9 BF 68 |                     or outa, x
+05B8(0168) 00 00 00 00 |                     nop
+05BC(0169) 05 E9 BF 6C |                     xor outa, x
+05C0(016A) 67 05 FE E4 |                     djnz i, #spi_select_loop
+05C4(016B)             | spi_select_done
+05C4(016B)             |                     fit 496
+05C4(016B)             | There are 133 ($085) Longs left in the cog
+05C4(016B)             |                         org $000
+05C4(0000) F0 9B BC A0 | ser_entry               mov     t1,par                'get structure address
+05C8(0001) 01 9C FC A0 |                         mov t2,#1
+05CC(0002) 06 9C 7C 0D | ser_unlock_loop         lockset t2 wc
+05D0(0003) 02 00 70 5C |                   if_c  jmp #ser_unlock_loop
+05D4(0004) 01 9C FC A0 |                         mov t2, #1
+05D8(0005) 0F 9C FC 2C |                         shl t2, #15
+05DC(0006) 4E EC BF 68 |                         or dira,t2
+05E0(0007) 4E E8 BF 68 |                         or outa,t2
+05E4(0008) 4D 9C BC 08 |                         rdlong  t2,t1                 'get rx_pin
+05E8(0009) 01 A4 FC A0 |                         mov     rxmask,#1
+05EC(000A) 4E A4 BC 2C |                         shl     rxmask,t2
+05F0(000B) 04 9A FC 80 |                         add     t1,#4                 'get tx_pin
+05F4(000C) 4D 9C BC 08 |                         rdlong  t2,t1
+05F8(000D) 01 B0 FC A0 |                         mov     txmask,#1
+05FC(000E) 4E B0 BC 2C |                         shl     txmask,t2
+0600(000F) 04 9A FC 80 |                         add     t1,#4                 'get rxtx_mode
+0604(0010) 4D A0 BC 08 |                         rdlong  rxtxmode,t1
+0608(0011) 04 9A FC 80 |                         add     t1,#4                 'get bit_ticks
+060C(0012) 4D A2 BC 08 |                         rdlong  bitticks,t1
+0610(0013) 04 9A FC 80 |                         add     t1,#4                 'get buffer_ptr
+0614(0014) 4D A6 BC A0 |                         mov     rxbuff, t1
+0618(0015) 04 9A FC 80 |                         add     t1, #4
+061C(0016) 4D B2 BC A0 |                         mov     txbuff, t1
+0620(0017) 04 A0 7C 62 |                         test    rxtxmode,#%100  wz    'init tx pin according to mode
+0624(0018) 02 A0 7C 61 |                         test    rxtxmode,#%010  wc
+0628(0019) 58 E8 9B 68 |         if_z_ne_c       or      outa,txmask
+062C(001A) 58 EC AB 68 |         if_z            or      dira,txmask
+0630(001B) 33 BA FC A0 |                         mov     txcode,#transmit      'initialize ping-pong multitasking
+0634(001C) 5D AE BC 5C | receive                 jmpret  rxcode,txcode         'run chunk of tx code, then return
+0638(001D) 01 A0 7C 62 |                         test    rxtxmode,#%001  wz    'wait for start bit on rx pin
+063C(001E) F2 A5 3C 61 |                         test    rxmask,ina      wc
+0640(001F) 1C 00 64 5C |         if_z_eq_c       jmp     #receive
+0644(0020) 09 AA FC A0 |                         mov     rxbits,#9             'ready to receive byte
+0648(0021) 51 AC BC A0 |                         mov     rxcnt,bitticks
+064C(0022) 01 AC FC 28 |                         shr     rxcnt,#1
+0650(0023) F1 AD BC 80 |                         add     rxcnt,cnt
+0654(0024) 51 AC BC 80 | :bit                    add     rxcnt,bitticks        'ready next bit period
+0658(0025) 5D AE BC 5C | :wait                   jmpret  rxcode,txcode         'run chunk of tx code, then return
+065C(0026) 56 9A BC A0 |                         mov     t1,rxcnt              'check if bit receive period done
+0660(0027) F1 9B BC 84 |                         sub     t1,cnt
+0664(0028) 00 9A 7C C1 |                         cmps    t1,#0           wc
+0668(0029) 25 00 4C 5C |         if_nc           jmp     #:wait
+066C(002A) F2 A5 3C 61 |                         test    rxmask,ina      wc    'receive bit on rx pin
+0670(002B) 01 A8 FC 30 |                         rcr     rxdata,#1
+0674(002C) 24 AA FC E4 |                         djnz    rxbits,#:bit
+0678(002D) 17 A8 FC 28 |                         shr     rxdata,#32-9          'justify and trim received byte
+067C(002E) FF A8 FC 60 |                         and     rxdata,#$FF
+0680(002F) 01 A0 7C 62 |                         test    rxtxmode,#%001  wz    'if rx inverted, invert byte
+0684(0030) FF A8 D4 6C |         if_nz           xor     rxdata,#$FF
+0688(0031) 53 A8 3C 08 |                         wrlong  rxdata, rxbuff
+068C(0032) 1C 00 7C 5C |                         jmp     #receive              'byte done, receive next byte
+0690(0033) 57 BA BC 5C | transmit                jmpret  txcode,rxcode         'run chunk of rx code, then return
+0694(0034) 59 9A BC 08 |                         rdlong  t1, txbuff
+0698(0035) 1F 9A FC 2A |                         shr t1, #31 wz
+069C(0036) 33 00 54 5C |         if_nz           jmp #transmit
+06A0(0037) 59 B4 BC 08 |                         rdlong txdata, txbuff
+06A4(0038) 01 9C FC A4 |                         neg t2, #1
+06A8(0039) 59 9C 3C 08 |                         wrlong t2, txbuff
+06AC(003A) 00 B5 FC 68 |                         or      txdata,#$100          'ready byte to transmit
+06B0(003B) 02 B4 FC 2C |                         shl     txdata,#2
+06B4(003C) 01 B4 FC 68 |                         or      txdata,#1
+06B8(003D) 0B B6 FC A0 |                         mov     txbits,#11
+06BC(003E) F1 B9 BC A0 |                         mov     txcnt,cnt
+06C0(003F) 04 A0 7C 62 | :bit                    test    rxtxmode,#%100  wz    'output bit on tx pin
+06C4(0040) 02 A0 7C 61 |                         test    rxtxmode,#%010  wc    'according to mode
+06C8(0041) 01 B4 E0 6C |         if_z_and_c      xor     txdata,#1
+06CC(0042) 01 B4 FC 29 |                         shr     txdata,#1       wc
+06D0(0043) 58 E8 AB 70 |         if_z            muxc    outa,txmask
+06D4(0044) 58 EC 97 74 |         if_nz           muxnc   dira,txmask
+06D8(0045) 51 B8 BC 80 |                         add     txcnt,bitticks        'ready next cnt
+06DC(0046) 57 BA BC 5C | :wait                   jmpret  txcode,rxcode         'run chunk of rx code, then return
+06E0(0047) 5C 9A BC A0 |                         mov     t1,txcnt              'check if bit transmit period done
+06E4(0048) F1 9B BC 84 |                         sub     t1,cnt
+06E8(0049) 00 9A 7C C1 |                         cmps    t1,#0           wc
+06EC(004A) 46 00 4C 5C |         if_nc           jmp     #:wait
+06F0(004B) 3F B6 FC E4 |                         djnz    txbits,#:bit          'another bit to transmit?
+06F4(004C) 33 00 7C 5C |                         jmp     #transmit             'byte done, transmit next byte
+06F8(004D)             | t1                      res     1
+06F8(004E)             | t2                      res     1
+06F8(004F)             | t3                      res     1
+06F8(0050)             | rxtxmode                res     1
+06F8(0051)             | bitticks                res     1
+06F8(0052)             | rxmask                  res     1
+06F8(0053)             | rxbuff                  res     1
+06F8(0054)             | rxdata                  res     1
+06F8(0055)             | rxbits                  res     1
+06F8(0056)             | rxcnt                   res     1
+06F8(0057)             | rxcode                  res     1
+06F8(0058)             | txmask                  res     1
+06F8(0059)             | txbuff                  res     1
+06F8(005A)             | txdata                  res     1
+06F8(005B)             | txbits                  res     1
+06F8(005C)             | txcnt                   res     1
+06F8(005D)             | txcode                  res     1
+|===========================================================================|
+|===========================================================================|
+Spin Block main with 0 Parameters and 0 Extra Stack Longs. Method 1
+pub main
+
+Local Parameter DBASE:0000 - Result
+|===========================================================================|
+Addr : 06F8:             36  : Constant 2 $00000001
+Addr : 06F9:             2E  : LockSet(Id)   
+Addr : 06FA:             36  : Constant 2 $00000001
+Addr : 06FB:       C7 85 B4  : Memory Op Long PBASE + ADDRESS Address = 05B4
+Addr : 06FE:          38 80  : Constant 1 Bytes - 80 
+Addr : 0700:             2C  : CogInit(Id, Addr, Ptr)
+Addr : 0701:             35  : Constant 1 $00000000
+Addr : 0702:          87 08  : Memory Op Byte PBASE + ADDRESS Address = 0008
+Addr : 0704:             35  : Constant 1 $00000000
+Addr : 0705:             2C  : CogInit(Id, Addr, Ptr)
+Addr : 0706:             32  : Return        
